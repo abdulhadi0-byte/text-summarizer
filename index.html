@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distill — a text summarizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #16181F;
+    --paper: #EDE7DA;
+    --paper-dim: #C9C2B2;
+    --amber: #D9A741;
+    --amber-soft: rgba(217,167,65,0.18);
+    --muted: #7C879E;
+    --rule: rgba(237,231,218,0.14);
+    --danger: #C16E5A;
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: var(--ink);
+    color: var(--paper);
+    font-family: "Source Serif 4", serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap{
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 56px 28px 120px;
+  }
+
+  header{
+    display:flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 28px;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .wordmark{
+    font-family: "Fraunces", serif;
+    font-weight: 600;
+    font-style: italic;
+    font-size: 28px;
+    letter-spacing: -0.01em;
+    color: var(--paper);
+  }
+  .wordmark span{ color: var(--amber); font-style: normal; }
+
+  .tagline{
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+
+  h1.hero{
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(34px, 5vw, 54px);
+    line-height: 1.08;
+    margin: 0 0 14px;
+    max-width: 760px;
+    letter-spacing: -0.01em;
+  }
+  h1.hero em{
+    font-style: italic;
+    color: var(--amber);
+  }
+
+  p.lede{
+    font-size: 17px;
+    color: var(--paper-dim);
+    max-width: 620px;
+    margin: 0 0 48px;
+  }
+
+  .panel{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+
+  .controls{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 18px;
+  }
+
+  .slider-group{
+    display:flex;
+    align-items:center;
+    gap: 12px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  input[type="range"]{
+    -webkit-appearance: none;
+    width: 140px;
+    height: 2px;
+    background: var(--paper-dim);
+    outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+    border: 2px solid var(--ink);
+  }
+  input[type="range"]::-moz-range-thumb{
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--amber);
+    cursor: pointer;
+    border: 2px solid var(--ink);
+  }
+
+  #sentenceCount{ color: var(--amber); font-weight: 500; min-width: 14px; display:inline-block; }
+
+  button.run{
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    background: var(--amber);
+    color: var(--ink);
+    border: none;
+    padding: 12px 22px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+  button.run:hover{ background: #e8bb5e; }
+  button.run:active{ transform: scale(0.97); }
+  button.run:focus-visible{ outline: 2px solid var(--paper); outline-offset: 2px; }
+
+  textarea{
+    width: 100%;
+    min-height: 220px;
+    background: rgba(237,231,218,0.04);
+    border: 1px solid var(--rule);
+    color: var(--paper);
+    font-family: "Source Serif 4", serif;
+    font-size: 16px;
+    line-height: 1.6;
+    padding: 22px;
+    resize: vertical;
+    border-radius: 2px;
+  }
+  textarea:focus-visible{ outline: 1px solid var(--amber); }
+  textarea::placeholder{ color: var(--muted); }
+
+  .manuscript{
+    border: 1px solid var(--rule);
+    padding: 32px;
+    border-radius: 2px;
+    background: rgba(237,231,218,0.03);
+    font-size: 16px;
+    min-height: 100px;
+  }
+  .manuscript .empty{
+    color: var(--muted);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .kept{
+    background: var(--amber-soft);
+    border-bottom: 2px solid var(--amber);
+    padding: 2px 0;
+  }
+  .dropped{
+    color: var(--paper-dim);
+    text-decoration: line-through;
+    text-decoration-color: var(--danger);
+    text-decoration-thickness: 1px;
+    opacity: 0.55;
+  }
+
+  .stats-row{
+    display:flex;
+    gap: 36px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+  }
+  .stat{
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .stat .num{
+    font-size: 26px;
+    color: var(--amber);
+    display:block;
+  }
+  .stat .label{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+
+  .label-row{
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 12px;
+    display:flex;
+    justify-content: space-between;
+  }
+
+  footer{
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  @media (prefers-reduced-motion: no-preference){
+    .manuscript span{ transition: opacity 0.3s ease; }
+  }
+
+  @media (max-width: 640px){
+    .wrap{ padding: 36px 18px 80px; }
+    .controls{ flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="wordmark">dist<span>ill</span></div>
+    <div class="tagline">extractive summarizer · no AI · no API</div>
+  </header>
+
+  <h1 class="hero">Keep what matters. <em>Strike</em> what doesn't.</h1>
+  <p class="lede">Paste any passage. A pure frequency-scoring algorithm ranks every sentence by how much it carries the document's core vocabulary, then marks the keepers in amber and crosses out the rest — right inside the original text.</p>
+
+  <div class="panel">
+    <div>
+      <div class="label-row"><span>01 — source text</span><span id="wordCountLabel">0 words</span></div>
+      <textarea id="inputText" placeholder="Paste a paragraph or article here…"></textarea>
+    </div>
+
+    <div class="controls">
+      <div class="slider-group">
+        <span>Sentences to keep</span>
+        <input type="range" id="sentenceSlider" min="1" max="8" value="3">
+        <span id="sentenceCount">3</span>
+      </div>
+      <button class="run" id="runBtn">Distill it</button>
+    </div>
+
+    <div>
+      <div class="label-row"><span>02 — marked manuscript</span><span id="compressionLabel"></span></div>
+      <div class="manuscript" id="output"><span class="empty">Your marked-up summary will appear here.</span></div>
+    </div>
+
+    <div class="stats-row" id="statsRow" style="display:none;">
+      <div class="stat"><span class="num" id="statOriginal">0</span><span class="label">original words</span></div>
+      <div class="stat"><span class="num" id="statSummary">0</span><span class="label">summary words</span></div>
+      <div class="stat"><span class="num" id="statSentences">0/0</span><span class="label">sentences kept</span></div>
+      <div class="stat"><span class="num" id="statCompression">0%</span><span class="label">shorter</span></div>
+    </div>
+  </div>
+
+  <footer>Runs entirely in your browser. No text leaves this page.</footer>
+</div>
+
+<script>
+  // ---- Same algorithm as summarizer.py, ported to JS ----
+
+  const STOPWORDS = new Set(("a about above after again against all am an and any are aren't as at be because been "
+    + "before being below between both but by can cannot could couldn't did didn't do does doesn't doing don't down "
+    + "during each few for from further had hadn't has hasn't have haven't having he he'd he'll he's her here here's "
+    + "hers herself him himself his how how's i i'd i'll i'm i've if in into is isn't it it's its itself let's me more "
+    + "most mustn't my myself no nor not of off on once only or other ought our ours ourselves out over own same "
+    + "shan't she she'd she'll she's should shouldn't so some such than that that's the their theirs them themselves "
+    + "then there there's these they they'd they'll they're they've this those through to too under until up very "
+    + "was wasn't we we'd we'll we're we've were weren't what what's when when's where where's which while who who's "
+    + "whom why why's with won't would wouldn't you you'd you'll you're you've your yours yourself yourselves").split(" "));
+
+  function splitSentences(text) {
+    const clean = text.trim().replace(/\n+/g, " ");
+    const matches = clean.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g);
+    if (!matches) return [];
+    return matches.map(s => s.trim()).filter(Boolean);
+  }
+
+  function tokenizeWords(sentence) {
+    const matches = sentence.toLowerCase().match(/[a-z']+/g);
+    return matches || [];
+  }
+
+  function buildFrequencies(sentences) {
+    const freq = {};
+    sentences.forEach(sentence => {
+      tokenizeWords(sentence).forEach(word => {
+        if (STOPWORDS.has(word) || word.length <= 1) return;
+        freq[word] = (freq[word] || 0) + 1;
+      });
+    });
+    const max = Math.max(0, ...Object.values(freq));
+    if (max === 0) return {};
+    const normalized = {};
+    for (const w in freq) normalized[w] = freq[w] / max;
+    return normalized;
+  }
+
+  function scoreSentences(sentences, freq) {
+    return sentences.map(sentence => {
+      const words = tokenizeWords(sentence).filter(w => !STOPWORDS.has(w) && w.length > 1);
+      if (words.length === 0) return 0;
+      const sum = words.reduce((acc, w) => acc + (freq[w] || 0), 0);
+      return sum / words.length;
+    });
+  }
+
+  function summarize(text, numSentences) {
+    const sentences = splitSentences(text);
+    let keptIndices;
+
+    if (sentences.length <= numSentences) {
+      keptIndices = new Set(sentences.map((_, i) => i));
+    } else {
+      const freq = buildFrequencies(sentences);
+      const scores = scoreSentences(sentences, freq);
+      const ranked = sentences.map((_, i) => i).sort((a, b) => scores[b] - scores[a]);
+      keptIndices = new Set(ranked.slice(0, numSentences));
+    }
+
+    return { sentences, keptIndices };
+  }
+
+  function wordCount(str) {
+    const m = str.match(/\S+/g);
+    return m ? m.length : 0;
+  }
+
+  // ---- UI wiring ----
+
+  const inputText = document.getElementById('inputText');
+  const sentenceSlider = document.getElementById('sentenceSlider');
+  const sentenceCount = document.getElementById('sentenceCount');
+  const runBtn = document.getElementById('runBtn');
+  const output = document.getElementById('output');
+  const wordCountLabel = document.getElementById('wordCountLabel');
+  const compressionLabel = document.getElementById('compressionLabel');
+  const statsRow = document.getElementById('statsRow');
+
+  sentenceSlider.addEventListener('input', () => {
+    sentenceCount.textContent = sentenceSlider.value;
+  });
+
+  inputText.addEventListener('input', () => {
+    wordCountLabel.textContent = wordCount(inputText.value) + ' words';
+  });
+
+  function render() {
+    const text = inputText.value.trim();
+    if (!text) {
+      output.innerHTML = '<span class="empty">Your marked-up summary will appear here.</span>';
+      statsRow.style.display = 'none';
+      compressionLabel.textContent = '';
+      return;
+    }
+
+    const numSentences = parseInt(sentenceSlider.value, 10);
+    const { sentences, keptIndices } = summarize(text, numSentences);
+
+    output.innerHTML = sentences.map((s, i) =>
+      keptIndices.has(i)
+        ? `<span class="kept">${escapeHtml(s)}</span> `
+        : `<span class="dropped">${escapeHtml(s)}</span> `
+    ).join('');
+
+    const originalWords = wordCount(text);
+    const summaryText = sentences.filter((_, i) => keptIndices.has(i)).join(' ');
+    const summaryWords = wordCount(summaryText);
+    const compression = originalWords === 0 ? 0 : Math.round((1 - summaryWords / originalWords) * 1000) / 10;
+
+    document.getElementById('statOriginal').textContent = originalWords;
+    document.getElementById('statSummary').textContent = summaryWords;
+    document.getElementById('statSentences').textContent = `${keptIndices.size}/${sentences.length}`;
+    document.getElementById('statCompression').textContent = compression + '%';
+    statsRow.style.display = 'flex';
+    compressionLabel.textContent = compression + '% shorter';
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  runBtn.addEventListener('click', render);
+
+  // Seed with an example so the page isn't empty on first load
+  inputText.value = "Climate change is one of the most pressing issues of our time. Rising global temperatures are causing ice caps to melt at an alarming rate. This melting contributes directly to rising sea levels around the world. Many coastal cities face increased flooding risks as a result. Scientists agree that reducing carbon emissions is critical to slowing this trend. Governments around the world are now investing in renewable energy sources. Solar and wind power have become significantly cheaper over the past decade. Public awareness of climate issues has also grown substantially in recent years.";
+  wordCountLabel.textContent = wordCount(inputText.value) + ' words';
+  render();
+</script>
+</body>
+</html>
